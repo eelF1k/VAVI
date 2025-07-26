@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Chat Panel</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; height: 100vh; overflow: hidden; }
+        body { color: var(--tg-theme-text-color); background-color: var(--tg-theme-bg-color); }
+        .container { display: flex; height: 100%; }
+        #chat-list { width: 30%; border-right: 1px solid var(--tg-theme-hint-color); overflow-y: auto; }
+        #chat-window { width: 70%; display: flex; flex-direction: column; }
+        #chat-list .chat-item { padding: 15px; border-bottom: 1px solid var(--tg-theme-hint-color); cursor: pointer; }
+        #chat-list .chat-item.active { background-color: var(--tg-theme-secondary-bg-color); }
+        #messages { list-style-type: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; }
+        #messages li { padding: 8px 12px; margin-bottom: 8px; border-radius: 18px; max-width: 70%; word-wrap: break-word; }
+        .user { background-color: var(--tg-theme-secondary-bg-color); margin-right: auto; border-bottom-left-radius: 4px; }
+        .admin { background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); margin-left: auto; border-bottom-right-radius: 4px; }
+        #form { display: flex; padding: 10px; border-top: 1px solid var(--tg-theme-hint-color); }
+        #messageText { flex-grow: 1; padding: 10px; border: 1px solid var(--tg-theme-hint-color); border-radius: 5px; background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
+        button { padding: 10px 15px; border: none; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border-radius: 5px; margin-left: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="chat-list">
+            <div class="chat-item">User 12345</div>
+        </div>
+        <div id="chat-window">
+            <ul id="messages"></ul>
+            <form id="form" onsubmit="sendMessage(event)">
+                <input type="text" id="messageText" autocomplete="off" placeholder="Ваша відповідь..."/>
+                <button>Надіслати</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        
+        // В майбутньому ми будемо отримувати ID адміна з URL
+        const adminId = 'admin'; // Поки що статично
+        let currentChatId = null;
+
+        // Тут буде логіка для WebSocket, завантаження списку чатів та повідомлень
+        
+        function sendMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById("messageText");
+            if (input.value && currentChatId) {
+                // В майбутньому буде відправка через WebSocket
+                console.log(`Sending to ${currentChatId}: ${input.value}`);
+                input.value = '';
+            }
+        }
+    </script>
+</body>
+</html>
