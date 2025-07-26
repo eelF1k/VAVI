@@ -6,36 +6,47 @@
     <title>Bot Web Panel</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; color: var(--tg-theme-text-color); background-color: var(--tg-theme-bg-color); text-align: center; padding: 20px; }
-        button { padding: 10px 20px; font-size: 16px; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border: none; border-radius: 5px; cursor: pointer; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--tg-theme-text-color); 
+            background-color: var(--tg-theme-bg-color);
+            text-align: center;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 90vh;
+        }
+        h1 { font-size: 24px; }
+        p { font-size: 16px; color: var(--tg-theme-hint-color); }
+        button { 
+            width: 100%;
+            padding: 15px 20px; 
+            font-size: 18px; 
+            font-weight: bold;
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <h1>Вітаю у веб-панелі!</h1>
-    <p>Це повідомлення відображається всередині Telegram.</p>
-    <p id="user-info"></p>
-    <button id="send-data-btn">Надіслати дані боту</button>
+    <h1>Веб-панель бота</h1>
+    <p>Це головна сторінка веб-додатку. Звідси ви можете перейти до онлайн-чату з адміністрацією.</p>
+
+    <button onclick="goToChat()">Перейти в онлайн-чат 💬</button>
 
     <script>
-        // Ініціалізуємо Web App
+        // Ініціалізуємо Web App для правильного відображення
         const tg = window.Telegram.WebApp;
-        tg.ready(); // Повідомляємо Telegram, що наш додаток готовий
+        tg.ready();
 
-        // Показуємо інформацію про користувача
-        if (tg.initDataUnsafe.user) {
-            document.getElementById('user-info').innerText = `Привіт, ${tg.initDataUnsafe.user.first_name}!`;
+        function goToChat() {
+            // Просто перенаправляємо користувача на сторінку чату
+            window.location.href = 'chat.html';
         }
-
-        // Обробник для кнопки
-        const sendButton = document.getElementById('send-data-btn');
-        sendButton.addEventListener('click', () => {
-            // Надсилаємо дані назад в бот
-            const dataToSend = JSON.stringify({ action: 'button_clicked', timestamp: new Date().toISOString() });
-            tg.sendData(dataToSend);
-            
-            // Після відправки можна закрити Web App
-            // tg.close(); 
-        });
     </script>
 </body>
 </html>
