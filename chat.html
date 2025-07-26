@@ -1,76 +1,65 @@
-# chat_server.py
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from typing import Dict, List
-import uvicorn
-import db
-import asyncio
-import json
-from datetime import datetime
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Live Chat</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <style>
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                margin: 0; padding: 10px; color: var(--tg-theme-text-color); 
+                background-color: var(--tg-theme-bg-color); display: flex; flex-direction: column; height: 100vh;
+            }
+            #messages { list-style-type: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; }
+            #messages li { padding: 8px 12px; margin-bottom: 8px; border-radius: 18px; max-width: 70%; word-wrap: break-word; }
+            .user { background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); margin-left: auto; border-bottom-right-radius: 4px; }
+            .admin { background-color: var(--tg-theme-secondary-bg-color); margin-right: auto; border-bottom-left-radius: 4px;}
+            #form { display: flex; padding-top: 10px; }
+            #messageText { flex-grow: 1; padding: 10px; border: 1px solid var(--tg-theme-hint-color); border-radius: 5px; background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
+            button { padding: 10px 15px; border: none; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border-radius: 5px; margin-left: 5px; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+        <ul id='messages'></ul>
+        <form id="form" onsubmit="sendMessage(event)">
+            <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..."/>
+            <button>Надіслати</button>
+        </form>
 
-app = FastAPI()
+        <script>
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
 
-@app.on_event("startup")
-async def startup_event():
-    await db.init_db()
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: Dict[int, WebSocket] = {}
-
-    async def connect(self, websocket: WebSocket, user_id: int):
-        await websocket.accept()
-        self.active_connections[user_id] = websocket
-        print(f"Користувач {user_id} підключився.")
-
-    def disconnect(self, user_id: int):
-        if user_id in self.active_connections:
-            del self.active_connections[user_id]
-            print(f"Користувач {user_id} від'єднався.")
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections.values():
-            await connection.send_text(message)
-
-manager = ConnectionManager()
-
-@app.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: int):
-    await manager.connect(websocket, user_id)
-    
-    # Крок 1: Завантажуємо та відправляємо історію чату при підключенні
-    try:
-        history = await db.get_chat_history(user_id)
-        for msg in history:
-            # Надсилаємо кожне історичне повідомлення у форматі JSON
-            await websocket.send_text(json.dumps(dict(msg)))
-    except Exception as e:
-        print(f"Помилка завантаження історії для {user_id}: {e}")
-
-    # Крок 2: Слухаємо нові повідомлення
-    try:
-        while True:
-            data = await websocket.receive_text()
+            // Отримуємо ID користувача з URL, який передає бот
+            const params = new URLSearchParams(window.location.search);
+            const userId = params.get('user_id') || tg.initDataUnsafe.user?.id || 'unknown_user';
             
-            # Зберігаємо нове повідомлення в БД
-            await db.save_chat_message(user_id, 'user', data)
+            // Підключаємось до WebSocket, передаючи ID користувача в посиланні
+            const ws = new WebSocket(`ws://localhost:8000/ws/${userId}`);
             
-            # Створюємо об'єкт повідомлення для відправки всім
-            message_obj = {
-                "message_id": None, # ID буде з бази, але для миттєвої відправки він не потрібен
-                "user_id": user_id,
-                "sender_type": "user",
-                "message_text": data,
-                "timestamp": datetime.now().isoformat()
+            function addMessage(message) {
+                const messages = document.getElementById('messages');
+                const li = document.createElement('li');
+                li.textContent = message.message_text;
+                li.className = message.sender_type === 'user' ? 'user' : 'admin';
+                messages.appendChild(li);
+                messages.scrollTop = messages.scrollHeight;
             }
             
-            # Розсилаємо нове повідомлення всім підключеним
-            await manager.broadcast(json.dumps(message_obj))
+            ws.onmessage = function(event) {
+                const messageData = JSON.parse(event.data);
+                addMessage(messageData);
+            };
             
-    except WebSocketDisconnect:
-        manager.disconnect(user_id)
-    except Exception as e:
-        print(f"Сталася помилка з користувачем {user_id}: {e}")
-        manager.disconnect(user_id)
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+            function sendMessage(event) {
+                event.preventDefault();
+                const input = document.getElementById("messageText");
+                if (input.value) {
+                    ws.send(input.value);
+                    input.value = '';
+                }
+            }
+        </script>
+    </body>
+</html>
