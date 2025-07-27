@@ -20,8 +20,8 @@
 <body>
     <ul id="messages"></ul>
     <form id="form" onsubmit="sendMessage(event)">
-        <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..." disabled/>
-        <button type="submit" disabled>Надіслати</button>
+        <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..."/>
+        <button>Надіслати</button>
     </form>
 
     <script>
@@ -29,23 +29,16 @@
         tg.ready();
         tg.expand();
 
-        // !!! НЕ ЗАБУДЬТЕ ВСТАВИТИ СЮДИ ВАШУ IP-АДРЕСУ !!!
-        const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
-        
-        let ws; 
+        // !!! ВАЖЛИВО !!!
+        // Замініть "localhost" на IP-адресу або домен вашого сервера.
+        // Якщо ваш сервер використовує HTTPS, протокол має бути "wss://".
+        const WEBSOCKET_URL = "ws://localhost:8000"; 
 
         const params = new URLSearchParams(window.location.search);
         const userId = params.get('user_id') || 'unknown_user';
         
-        if (window.location.protocol === "https:") {
-            const secureUrl = WEBSOCKET_URL.replace("ws://", "wss://");
-            console.log("Сторінка завантажена по HTTPS. Спроба підключення до " + secureUrl);
-            ws = new WebSocket(`${secureUrl}/ws/${userId}/false`);
-        } else {
-            console.log("Підключення до " + WEBSOCKET_URL);
-            ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
-        }
-
+        const ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
+        
         function addMessage(message) {
             const messages = document.getElementById('messages');
             const li = document.createElement('li');
@@ -56,44 +49,31 @@
         }
         
         ws.onopen = function() {
-            console.log("WebSocket з'єднання успішно встановлено!");
-            document.getElementById('messageText').disabled = false;
-            document.querySelector('#form button').disabled = false;
+            console.log("WebSocket connection established");
         };
 
         ws.onmessage = function(event) {
             try {
-                const response = JSON.parse(event.data);
-                // Обробляємо повідомлення, лише якщо це історія або нове повідомлення
-                if (response.type === 'history' || response.type === 'message') {
-                    addMessage(response);
-                }
+                const messageData = JSON.parse(event.data);
+                addMessage(messageData);
             } catch (e) {
-                console.error("Не вдалося обробити дані від сервера:", event.data, e);
+                console.error("Failed to parse message data:", event.data, e);
             }
         };
 
         ws.onclose = function(event) {
-            console.error("WebSocket з'єднання закрито.", event);
-            document.getElementById('messageText').placeholder = "Зв'язок втрачено. Перезавантажте.";
-            document.getElementById('messageText').disabled = true;
-            document.querySelector('#form button').disabled = true;
+            console.log("WebSocket connection closed", event);
+            // Можна додати логіку для перепідключення
         };
         
         ws.onerror = function(error) {
-            console.error("Помилка WebSocket:", error);
+            console.error("WebSocket error:", error);
         };
         
         function sendMessage(event) {
             event.preventDefault();
             const input = document.getElementById("messageText");
-            
-            if (ws.readyState !== WebSocket.OPEN) {
-                console.error("Неможливо надіслати повідомлення, WebSocket не підключено. Статус: " + ws.readyState);
-                return;
-            }
-
-            if (input.value) {
+            if (input.value && ws.readyState === WebSocket.OPEN) {
                 ws.send(input.value);
                 input.value = '';
             }
