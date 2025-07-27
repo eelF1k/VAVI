@@ -20,8 +20,8 @@
 <body>
     <ul id="messages"></ul>
     <form id="form" onsubmit="sendMessage(event)">
-        <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..."/>
-        <button>Надіслати</button>
+        <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..." disabled/>
+        <button type="submit" disabled>Надіслати</button>
     </form>
 
     <script>
@@ -29,7 +29,7 @@
         tg.ready();
         tg.expand();
 
-        // !!! IP-АДРЕСУ ЗАМІНЕНО !!!
+        // !!! НЕ ЗАБУДЬТЕ ВСТАВИТИ СЮДИ ВАШУ IP-АДРЕСУ !!!
         const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
         
         let ws; 
@@ -64,6 +64,7 @@
         ws.onmessage = function(event) {
             try {
                 const response = JSON.parse(event.data);
+                // Обробляємо повідомлення, лише якщо це історія або нове повідомлення
                 if (response.type === 'history' || response.type === 'message') {
                     addMessage(response);
                 }
