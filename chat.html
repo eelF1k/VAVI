@@ -68,17 +68,12 @@
         // Застосовуємо переклади одразу при завантаженні скрипта
         applyTranslations();
         
-        const WEBSOCKET_HOST = window.location.hostname;
-        const WEBSOCKET_URL = `ws://${WEBSOCKET_HOST}:8000`;
+        // Автоматичне визначення хоста та протоколу
+        const host = window.location.hostname;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${host}:8000/ws/${userId}/false?lang=${userLang}`;
         
-        let ws; 
-
-        if (window.location.protocol === "https:") {
-            const secureUrl = WEBSOCKET_URL.replace("ws://", "wss://");
-            ws = new WebSocket(`${secureUrl}/ws/${userId}/false`);
-        } else {
-            ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
-        }
+        const ws = new WebSocket(wsUrl);
 
         function addMessage(message) {
             const messages = document.getElementById('messages');
@@ -122,17 +117,18 @@
             const input = document.getElementById("messageText");
             
             if (ws.readyState !== WebSocket.OPEN) {
-                console.error("Неможливо надіслати повідомлення, WebSocket не підключено. Статус: " + ws.readyState);
+                console.error("WebSocket не підключено.");
                 return;
             }
-
+        
             if (input.value) {
+                // Відправляємо структуроване повідомлення
                 const message = {
                     type: "message",
-                    text: input.value,
-                    sender_type: "user"
+                    text: input.value
                 };
                 ws.send(JSON.stringify(message));
+                input.value = '';
             }
         }
     </script>
