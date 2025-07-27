@@ -68,8 +68,8 @@
         // Застосовуємо переклади одразу при завантаженні скрипта
         applyTranslations();
         
-        // !!! НЕ ЗАБУДЬТЕ ВСТАВИТИ СЮДИ ВАШУ IP-АДРЕСУ !!!
-        const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
+        const WEBSOCKET_HOST = window.location.hostname;
+        const WEBSOCKET_URL = `ws://${WEBSOCKET_HOST}:8000`;
         
         let ws; 
 
