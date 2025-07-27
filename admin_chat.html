@@ -86,25 +86,25 @@
         function populateInitialChatList(chats) {
             chatList.innerHTML = '';
             chats.forEach(chat => {
-                const chatItem = createChatItem(chat.user_id, chat.message_text, chat.first_name);
+                const chatItem = createChatItem(chat.user_id, chat.message_text);
                 chatList.appendChild(chatItem);
             });
         }
 
         function handleRealtimeMessage(msg) {
-            updateChatList(msg.user_id, msg.message_text, msg.sender_type === 'user', msg.first_name);
+            updateChatList(msg.user_id, msg.message_text, msg.sender_type === 'user');
             if (msg.user_id === currentChatId) {
                 addMessage(msg);
             }
         }
 
-        function createChatItem(userId, lastMessage, firstName) {
+        function createChatItem(userId, lastMessage) {
             const chatItem = document.createElement('div');
             chatItem.className = 'chat-item';
             chatItem.id = `chat-${userId}`;
             
             const nameSpan = document.createElement('span');
-            nameSpan.textContent = firstName || `User ${userId}`;
+            nameSpan.textContent = `User ${userId}`;
             nameSpan.style.fontWeight = 'bold';
             
             const lastMsgSpan = document.createElement('div');
@@ -131,13 +131,12 @@
             messages.prepend(li); 
         }
 
-        function updateChatList(userId, lastMessage, isNewFromUser, firstName) {
+        function updateChatList(userId, lastMessage, isNewFromUser) {
             let chatItem = document.getElementById(`chat-${userId}`);
             
             if (!chatItem) {
-                chatItem = createChatItem(userId, lastMessage, firstName);
+                chatItem = createChatItem(userId, lastMessage);
             } else {
-                chatItem.querySelector('span').textContent = firstName || `User ${userId}`;
                 chatItem.querySelector('div').textContent = lastMessage.length > 25 ? lastMessage.substring(0, 25) + '...' : lastMessage;
             }
             
