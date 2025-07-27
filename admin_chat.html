@@ -159,25 +159,7 @@
             }
         }
 
-        function sendMessage(event) {
-            event.preventDefault();
-            if (messageInput.value && currentChatId && ws.readyState === WebSocket.OPEN) {
-                const message = {
-                    target_user_id: currentChatId,
-                    text: messageInput.value,
-                    // 'action' не потрібен, сервер за замовчуванням вважає це повідомленням
-                };
-                ws.send(JSON.stringify(message));
-                
-                // Негайно додаємо повідомлення адміна в чат, не чекаючи відповіді від сервера
-                addMessage({
-                    user_id: currentChatId, 
-                    message_text: messageInput.value,
-                    sender_type: 'admin'
-                });
-                
-                messageInput.value = '';
-            }
+        sendMessage
         }
     </script>
 </body>
