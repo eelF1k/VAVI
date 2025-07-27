@@ -20,63 +20,29 @@
 <body>
     <ul id="messages"></ul>
     <form id="form" onsubmit="sendMessage(event)">
-        <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..." data-translate-placeholder="chat_placeholder" disabled/>
-        <button type="submit" data-translate-text="chat_send_button" disabled>ТЕСТ 123</button>
+        <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..." disabled/>
+        <button type="submit" disabled>Надіслати</button>
     </form>
 
     <script>
-        // Словник з перекладами
-        const translations = {
-            'ua': {
-                'chat_placeholder': 'Ваше повідомлення...',
-                'chat_send_button': '123',
-                'chat_connection_lost': "Хуйня."
-            },
-            'en': {
-                'chat_placeholder': 'Your message...',
-                'chat_send_button': 'Send',
-                'chat_connection_lost': 'Connection lost. Please reload.'
-            },
-            'ru': {
-                'chat_placeholder': 'Ваше сообщение...',
-                'chat_send_button': 'Отправить',
-                'chat_connection_lost': 'Связь потеряна. Перезагрузите.'
-            }
-        };
-
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
-        const params = new URLSearchParams(window.location.search);
-        const userId = params.get('user_id') || 'unknown_user';
-        const userLang = params.get('lang') || 'ua';
-        const langDict = translations[userLang] || translations['ua'];
-
-        // Функція для застосування перекладів
-        function applyTranslations() {
-            document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-translate-placeholder');
-                if (langDict[key]) el.placeholder = langDict[key];
-            });
-            document.querySelectorAll('[data-translate-text]').forEach(el => {
-                const key = el.getAttribute('data-translate-text');
-                if (langDict[key]) el.textContent = langDict[key];
-            });
-        }
-        
-        // Застосовуємо переклади одразу при завантаженні скрипта
-        applyTranslations();
-        
         // !!! НЕ ЗАБУДЬТЕ ВСТАВИТИ СЮДИ ВАШУ IP-АДРЕСУ !!!
         const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
         
         let ws; 
 
+        const params = new URLSearchParams(window.location.search);
+        const userId = params.get('user_id') || 'unknown_user';
+        
         if (window.location.protocol === "https:") {
             const secureUrl = WEBSOCKET_URL.replace("ws://", "wss://");
+            console.log("Сторінка завантажена по HTTPS. Спроба підключення до " + secureUrl);
             ws = new WebSocket(`${secureUrl}/ws/${userId}/false`);
         } else {
+            console.log("Підключення до " + WEBSOCKET_URL);
             ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
         }
 
@@ -98,6 +64,7 @@
         ws.onmessage = function(event) {
             try {
                 const response = JSON.parse(event.data);
+                // Обробляємо повідомлення, лише якщо це історія або нове повідомлення
                 if (response.type === 'history' || response.type === 'message') {
                     addMessage(response);
                 }
@@ -108,7 +75,7 @@
 
         ws.onclose = function(event) {
             console.error("WebSocket з'єднання закрито.", event);
-            document.getElementById('messageText').placeholder = langDict['chat_connection_lost'];
+            document.getElementById('messageText').placeholder = "Зв'язок втрачено. Перезавантажте.";
             document.getElementById('messageText').disabled = true;
             document.querySelector('#form button').disabled = true;
         };
