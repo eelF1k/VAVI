@@ -6,6 +6,7 @@
     <title>Live Chat</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* Ваші стилі без змін */
         body, html { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; height: 100vh; overflow: hidden; }
         body { color: var(--tg-theme-text-color); background-color: var(--tg-theme-bg-color); display: flex; flex-direction: column; }
         #messages { list-style-type: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; }
@@ -21,7 +22,7 @@
     <ul id="messages"></ul>
     <form id="form" onsubmit="sendMessage(event)">
         <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..." data-translate-placeholder="chat_placeholder" disabled/>
-        <button type="submit" data-translate-text="chat_send_button" disabled>ТЕСТ 123</button>
+        <button type="submit" data-translate-text="chat_send_button" disabled>Надіслати</button>
     </form>
 
     <script>
@@ -30,17 +31,23 @@
             'ua': {
                 'chat_placeholder': 'Ваше повідомлення...',
                 'chat_send_button': 'Надіслати',
-                'chat_connection_lost': "Зв'язок втрачено. Перезавантажте."
+                'chat_connection_lost': "Зв'язок втрачено. Перезавантажте.",
+                'chat_connecting': "Підключення до сервера...",
+                'chat_connection_error': "Помилка підключення. Спробуйте ще раз."
             },
             'en': {
                 'chat_placeholder': 'Your message...',
                 'chat_send_button': 'Send',
-                'chat_connection_lost': 'Connection lost. Please reload.'
+                'chat_connection_lost': 'Connection lost. Please reload.',
+                'chat_connecting': "Connecting to server...",
+                'chat_connection_error': "Connection error. Please try again."
             },
             'ru': {
                 'chat_placeholder': 'Ваше сообщение...',
                 'chat_send_button': 'Отправить',
-                'chat_connection_lost': 'Связь потеряна. Перезагрузите.'
+                'chat_connection_lost': 'Связь потеряна. Перезагрузите.',
+                'chat_connecting': "Подключение к серверу...",
+                'chat_connection_error': "Ошибка подключения. Попробуйте снова."
             }
         };
 
@@ -68,46 +75,75 @@
         // Застосовуємо переклади одразу при завантаженні скрипта
         applyTranslations();
         
-        // Автоматичне визначення хоста та протоколу
-        const host = window.location.hostname;
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${host}:5500/ws/${userId}/false?lang=${userLang}`;
+        // Автоматичне визначення URL WebSocket
+        const isHttps = window.location.protocol === 'https:';
+        const wsProtocol = isHttps ? 'wss' : 'ws';
+        let host = window.location.hostname;
         
-        const ws = new WebSocket(wsUrl);
+        // Виправлення для локального тестування
+        if (host === "localhost" || host === "127.0.0.1") {
+            host = "localhost";
+        } else {
+            host = "https://eelf1k.github.io/VAVI"; // ЗАМІНІТЬ НА ВАШ ПУБЛІЧНИЙ IP/ДОМЕН
+        }
+        
+        const port = isHttps ? 443 : 5500;
+        const wsUrl = `${wsProtocol}://${host}:${port}/ws/${userId}/false?lang=${userLang}`;
 
+        console.log("Підключення до WebSocket:", wsUrl);
+        const ws = new WebSocket(wsUrl);
+        
+        // Елементи інтерфейсу
+        const messageInput = document.getElementById('messageText');
+        const sendButton = document.querySelector('#form button');
+        
+        // Початковий стан - поле вводу вимкнене
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+        messageInput.placeholder = langDict['chat_connecting'];
+        
+        // Обробники подій WebSocket
+        ws.onopen = function() {
+            console.log("WebSocket з'єднання успішно встановлено!");
+            // АКТИВАЦІЯ ПОЛЯ ВВОДУ ТА КНОПКИ
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            messageInput.placeholder = langDict['chat_placeholder'];
+            messageInput.focus(); // Автофокус на полі вводу
+        };
+
+        ws.onmessage = function(event) {
+            try {
+                const response = JSON.parse(event.data);
+                if (response.type === 'history' || response.type === 'message') {
+                    addMessage(response);
+                }
+            } catch (e) {
+                console.error("Не вдалося обробити дані від сервера:", event.data, e);
+            }
+        };
+
+        ws.onerror = function(error) {
+            console.error("Помилка WebSocket:", error);
+            messageInput.placeholder = langDict['chat_connection_error'];
+        };
+        
+        ws.onclose = function(event) {
+            console.error("WebSocket з'єднання закрито.", event);
+            messageInput.placeholder = langDict['chat_connection_lost'];
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+        };
+        
         function addMessage(message) {
             const messages = document.getElementById('messages');
             const li = document.createElement('li');
             li.textContent = message.message_text;
             li.className = message.sender_type === 'user' ? 'user' : 'admin';
             messages.appendChild(li);
+            // Автопрокрутка до останнього повідомлення
             messages.scrollTop = messages.scrollHeight;
         }
-        
-        console.log("Початковий стан WebSocket:", ws.readyState);
-        
-        ws.onopen = function() {
-            console.log("WebSocket connected! Ready state:", ws.readyState);
-            document.getElementById('messageText').disabled = false;
-            document.querySelector('#form button').disabled = false;
-            document.getElementById('messageText').placeholder = langDict['chat_placeholder'];
-        };
-        
-        ws.onerror = function(error) {
-            console.error("WebSocket error:", error);
-            document.getElementById('messageText').placeholder = langDict['chat_connection_error'];
-        };
-        
-        ws.onclose = function(event) {
-            console.log("WebSocket closed:", event);
-            document.getElementById('messageText').placeholder = langDict['chat_connection_lost'];
-            document.getElementById('messageText').disabled = true;
-            document.querySelector('#form button').disabled = true;
-        };
-        
-        ws.onerror = function(error) {
-            console.error("Помилка WebSocket:", error);
-        };
         
         function sendMessage(event) {
             event.preventDefault();
@@ -117,7 +153,7 @@
                 console.error("WebSocket не підключено.");
                 return;
             }
-        
+
             if (input.value) {
                 // Відправляємо структуроване повідомлення
                 const message = {
@@ -125,6 +161,14 @@
                     text: input.value
                 };
                 ws.send(JSON.stringify(message));
+                
+                // Додаємо повідомлення локально (оптимістичний UI)
+                addMessage({
+                    sender_type: "user",
+                    message_text: input.value,
+                    timestamp: new Date().toISOString()
+                });
+                
                 input.value = '';
             }
         }
