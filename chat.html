@@ -29,11 +29,15 @@
         tg.ready();
         tg.expand();
 
+        // !!! ВАЖЛИВО !!!
+        // Замініть "localhost" на IP-адресу або домен вашого сервера.
+        // Якщо ваш сервер використовує HTTPS, протокол має бути "wss://".
+        const WEBSOCKET_URL = "ws://localhost:8000"; 
+
         const params = new URLSearchParams(window.location.search);
         const userId = params.get('user_id') || 'unknown_user';
         
-        // ВАЖЛИВО: Заміни localhost на реальну IP-адресу або домен твого сервера, коли будеш розміщувати його в інтернеті
-        const ws = new WebSocket(`ws://localhost:8000/ws/${userId}/false`);
+        const ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
         
         function addMessage(message) {
             const messages = document.getElementById('messages');
@@ -44,15 +48,32 @@
             messages.scrollTop = messages.scrollHeight;
         }
         
+        ws.onopen = function() {
+            console.log("WebSocket connection established");
+        };
+
         ws.onmessage = function(event) {
-            const messageData = JSON.parse(event.data);
-            addMessage(messageData);
+            try {
+                const messageData = JSON.parse(event.data);
+                addMessage(messageData);
+            } catch (e) {
+                console.error("Failed to parse message data:", event.data, e);
+            }
+        };
+
+        ws.onclose = function(event) {
+            console.log("WebSocket connection closed", event);
+            // Можна додати логіку для перепідключення
+        };
+        
+        ws.onerror = function(error) {
+            console.error("WebSocket error:", error);
         };
         
         function sendMessage(event) {
             event.preventDefault();
             const input = document.getElementById("messageText");
-            if (input.value) {
+            if (input.value && ws.readyState === WebSocket.OPEN) {
                 ws.send(input.value);
                 input.value = '';
             }
