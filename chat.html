@@ -90,9 +90,9 @@
         }
         
         ws.onopen = function() {
-            console.log("WebSocket з'єднання успішно встановлено!");
+            console.log("WebSocket connected");
             document.getElementById('messageText').disabled = false;
-            document.querySelector('#form button').disabled = false;
+            document.querySelector('button[type="submit"]').disabled = false;
         };
 
         ws.onmessage = function(event) {
@@ -107,10 +107,10 @@
         };
 
         ws.onclose = function(event) {
-            console.error("WebSocket з'єднання закрито.", event);
-            document.getElementById('messageText').placeholder = langDict['chat_connection_lost'];
+            console.log("WebSocket disconnected", event);
+            document.getElementById('messageText').placeholder = "З'єднання втрачено";
             document.getElementById('messageText').disabled = true;
-            document.querySelector('#form button').disabled = true;
+            document.querySelector('button[type="submit"]').disabled = true;
         };
         
         ws.onerror = function(error) {
@@ -127,8 +127,12 @@
             }
 
             if (input.value) {
-                ws.send(input.value);
-                input.value = '';
+                const message = {
+                    type: "message",
+                    text: input.value,
+                    sender_type: "user"
+                };
+                ws.send(JSON.stringify(message));
             }
         }
     </script>
