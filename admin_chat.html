@@ -40,7 +40,7 @@
         tg.ready();
 
         // !!! ВАЖЛИВО: Замініть "localhost" на IP-адресу або домен вашого сервера !!!
-        const WEBSOCKET_URL = "wss://127.0.0.1:8000"; 
+        const WEBSOCKET_URL = "ws://192.168.0.104:8000"; 
         
         const params = new URLSearchParams(window.location.search);
         const adminId = params.get('user_id') || 'admin';
