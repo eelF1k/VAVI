@@ -31,8 +31,8 @@
 
         // !!! ВАЖЛИВО !!!
         // Замініть "localhost" на IP-адресу або домен вашого сервера.
-        // Якщо ваш сервер використовує HTTPS, протокол має бути "wss://".
-        const WEBSOCKET_URL = "ws://localhost:8000"; 
+        // Якщо ваш сервер використовує HTTPS, протокол має бути "ws://".
+        const WEBSOCKET_URL = "wss://localhost:8000"; 
 
         const params = new URLSearchParams(window.location.search);
         const userId = params.get('user_id') || 'unknown_user';
