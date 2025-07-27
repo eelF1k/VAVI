@@ -39,8 +39,8 @@
         const tg = window.Telegram.WebApp;
         tg.ready();
 
-        // !!! ВАЖЛИВО: Замініть "localhost" на IP-адресу або домен вашого сервера !!!
-        const WEBSOCKET_URL = "ws://192.168.0.104:8000"; 
+        // !!! IP-АДРЕСУ ЗАМІНЕНО !!!
+        const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
         
         const params = new URLSearchParams(window.location.search);
         const adminId = params.get('user_id') || 'admin';
@@ -51,7 +51,13 @@
         const messageInput = document.getElementById('messageText');
         const sendButton = document.querySelector('#form button');
 
-        const ws = new WebSocket(`${WEBSOCKET_URL}/ws/${adminId}/true`);
+        let ws;
+        if (window.location.protocol === "https:") {
+            const secureUrl = WEBSOCKET_URL.replace("ws://", "wss://");
+            ws = new WebSocket(`${secureUrl}/ws/${adminId}/true`);
+        } else {
+            ws = new WebSocket(`${WEBSOCKET_URL}/ws/${adminId}/true`);
+        }
 
         ws.onopen = () => console.log("Admin WebSocket connection established");
         ws.onclose = () => console.log("Admin WebSocket connection closed");
@@ -122,7 +128,7 @@
             const li = document.createElement('li');
             li.textContent = message.message_text;
             li.className = message.sender_type === 'user' ? 'user' : 'admin';
-            messages.prepend(li); // Завжди додаємо на початок, бо flex-direction: column-reverse
+            messages.prepend(li); 
         }
 
         function updateChatList(userId, lastMessage, isNewFromUser) {
