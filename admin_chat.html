@@ -11,10 +11,10 @@
         .container { display: flex; height: 100%; }
         #chat-list { width: 35%; border-right: 1px solid var(--tg-theme-hint-color); overflow-y: auto; }
         #chat-window { width: 65%; display: flex; flex-direction: column; }
-        #chat-list .chat-item { padding: 15px; border-bottom: 1px solid var(--tg-theme-hint-color); cursor: pointer; }
+        #chat-list .chat-item { padding: 10px 15px; border-bottom: 1px solid var(--tg-theme-hint-color); cursor: pointer; position: relative; }
         #chat-list .chat-item.active { background-color: var(--tg-theme-secondary-bg-color); }
-        #chat-list .chat-item .unread { float: right; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 20px; font-size: 12px; }
-        #messages { list-style-type: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; }
+        #chat-list .chat-item .unread { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border-radius: 50%; width: 22px; height: 22px; text-align: center; line-height: 22px; font-size: 12px; font-weight: bold; }
+        #messages { list-style-type: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; }
         #messages li { padding: 8px 12px; margin-bottom: 8px; border-radius: 18px; max-width: 70%; word-wrap: break-word; }
         .user { background-color: var(--tg-theme-secondary-bg-color); margin-right: auto; border-bottom-left-radius: 4px; }
         .admin { background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); margin-left: auto; border-bottom-right-radius: 4px; }
@@ -29,8 +29,8 @@
         <div id="chat-window">
             <ul id="messages"></ul>
             <form id="form" onsubmit="sendMessage(event)">
-                <input type="text" id="messageText" autocomplete="off" placeholder="Ваша відповідь..." disabled/>
-                <button disabled>Надіслати</button>
+                <input type="text" id="messageText" autocomplete="off" placeholder="Виберіть чат для відповіді..." disabled/>
+                <button type="submit" disabled>Надіслати</button>
             </form>
         </div>
     </div>
@@ -38,6 +38,9 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
+
+        // !!! ВАЖЛИВО: Замініть "localhost" на IP-адресу або домен вашого сервера !!!
+        const WEBSOCKET_URL = "ws://localhost:8000"; 
         
         const params = new URLSearchParams(window.location.search);
         const adminId = params.get('user_id') || 'admin';
@@ -48,65 +51,135 @@
         const messageInput = document.getElementById('messageText');
         const sendButton = document.querySelector('#form button');
 
-        // ВАЖЛИВО: Заміни localhost на реальну IP-адресу або домен твого сервера
-        const ws = new WebSocket(`ws://localhost:8000/ws/${adminId}/true`);
+        const ws = new WebSocket(`${WEBSOCKET_URL}/ws/${adminId}/true`);
+
+        ws.onopen = () => console.log("Admin WebSocket connection established");
+        ws.onclose = () => console.log("Admin WebSocket connection closed");
+        ws.onerror = (error) => console.error("Admin WebSocket error:", error);
 
         ws.onmessage = function(event) {
-            const msg = JSON.parse(event.data);
-            
-            // Оновлюємо список чатів
-            updateChatList(msg.user_id);
-            
-            // Якщо повідомлення для поточного відкритого чату, показуємо його
+            try {
+                const response = JSON.parse(event.data);
+                
+                switch (response.type) {
+                    case 'chat_list':
+                        populateInitialChatList(response.data);
+                        break;
+                    case 'history':
+                        addMessage(response);
+                        break;
+                    case 'message':
+                        handleRealtimeMessage(response);
+                        break;
+                }
+            } catch (e) {
+                console.error("Failed to parse admin message data:", event.data, e);
+            }
+        };
+
+        function populateInitialChatList(chats) {
+            chatList.innerHTML = '';
+            chats.forEach(chat => {
+                const chatItem = createChatItem(chat.user_id, chat.message_text);
+                chatList.appendChild(chatItem);
+            });
+        }
+
+        function handleRealtimeMessage(msg) {
+            updateChatList(msg.user_id, msg.message_text, msg.sender_type === 'user');
             if (msg.user_id === currentChatId) {
                 addMessage(msg);
             }
-        };
+        }
+
+        function createChatItem(userId, lastMessage) {
+            const chatItem = document.createElement('div');
+            chatItem.className = 'chat-item';
+            chatItem.id = `chat-${userId}`;
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = `User ${userId}`;
+            nameSpan.style.fontWeight = 'bold';
+            
+            const lastMsgSpan = document.createElement('div');
+            lastMsgSpan.textContent = lastMessage.length > 25 ? lastMessage.substring(0, 25) + '...' : lastMessage;
+            lastMsgSpan.style.fontSize = '14px';
+            lastMsgSpan.style.color = 'var(--tg-theme-hint-color)';
+
+            const unreadSpan = document.createElement('span');
+            unreadSpan.className = 'unread';
+            unreadSpan.style.display = 'none';
+
+            chatItem.appendChild(nameSpan);
+            chatItem.appendChild(lastMsgSpan);
+            chatItem.appendChild(unreadSpan);
+
+            chatItem.onclick = () => selectChat(userId);
+            return chatItem;
+        }
 
         function addMessage(message) {
             const li = document.createElement('li');
             li.textContent = message.message_text;
             li.className = message.sender_type === 'user' ? 'user' : 'admin';
-            messages.appendChild(li);
-            messages.scrollTop = messages.scrollHeight;
+            messages.prepend(li); // Завжди додаємо на початок, бо flex-direction: column-reverse
         }
 
-        function updateChatList(userId) {
+        function updateChatList(userId, lastMessage, isNewFromUser) {
             let chatItem = document.getElementById(`chat-${userId}`);
+            
             if (!chatItem) {
-                chatItem = document.createElement('div');
-                chatItem.className = 'chat-item';
-                chatItem.id = `chat-${userId}`;
-                chatItem.textContent = `User ${userId}`;
-                chatItem.onclick = () => selectChat(userId);
-                chatList.prepend(chatItem);
+                chatItem = createChatItem(userId, lastMessage);
+            } else {
+                chatItem.querySelector('div').textContent = lastMessage.length > 25 ? lastMessage.substring(0, 25) + '...' : lastMessage;
+            }
+            
+            chatList.prepend(chatItem);
+
+            if (isNewFromUser && userId !== currentChatId) {
+                const unreadSpan = chatItem.querySelector('.unread');
+                unreadSpan.style.display = 'block';
+                let currentCount = parseInt(unreadSpan.textContent) || 0;
+                unreadSpan.textContent = currentCount + 1;
             }
         }
 
-        async function selectChat(userId) {
+        function selectChat(userId) {
+            if (currentChatId === userId) return;
+            
             currentChatId = userId;
             
-            // Робимо чат активним у списку
             document.querySelectorAll('#chat-list .chat-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(`chat-${userId}`).classList.add('active');
+            const chatItem = document.getElementById(`chat-${userId}`);
+            chatItem.classList.add('active');
             
-            // Очищуємо старі повідомлення
+            const unreadSpan = chatItem.querySelector('.unread');
+            if (unreadSpan) {
+                unreadSpan.textContent = '';
+                unreadSpan.style.display = 'none';
+            }
+            
             messages.innerHTML = '';
             
-            // Вмикаємо форму відправки
             messageInput.disabled = false;
             sendButton.disabled = false;
+            messageInput.placeholder = `Відповідь для User ${userId}...`;
+            messageInput.focus();
             
-            // Завантажуємо історію (в майбутньому це буде робити сервер)
-            // Зараз просто чекаємо на нові повідомлення
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    action: "get_history",
+                    user_id: userId
+                }));
+            }
         }
 
         function sendMessage(event) {
             event.preventDefault();
-            if (messageInput.value && currentChatId) {
+            if (messageInput.value && currentChatId && ws.readyState === WebSocket.OPEN) {
                 const message = {
                     target_user_id: currentChatId,
-                    text: messageInput.value
+                    text: messageInput.value,
                 };
                 ws.send(JSON.stringify(message));
                 messageInput.value = '';
