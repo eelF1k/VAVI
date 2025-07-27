@@ -84,28 +84,25 @@
             messages.scrollTop = messages.scrollHeight;
         }
         
+        console.log("Початковий стан WebSocket:", ws.readyState);
+        
         ws.onopen = function() {
-            console.log("WebSocket connected");
+            console.log("WebSocket connected! Ready state:", ws.readyState);
             document.getElementById('messageText').disabled = false;
-            document.querySelector('button[type="submit"]').disabled = false;
+            document.querySelector('#form button').disabled = false;
+            document.getElementById('messageText').placeholder = langDict['chat_placeholder'];
         };
-
-        ws.onmessage = function(event) {
-            try {
-                const response = JSON.parse(event.data);
-                if (response.type === 'history' || response.type === 'message') {
-                    addMessage(response);
-                }
-            } catch (e) {
-                console.error("Не вдалося обробити дані від сервера:", event.data, e);
-            }
+        
+        ws.onerror = function(error) {
+            console.error("WebSocket error:", error);
+            document.getElementById('messageText').placeholder = langDict['chat_connection_error'];
         };
-
+        
         ws.onclose = function(event) {
-            console.log("WebSocket disconnected", event);
-            document.getElementById('messageText').placeholder = "З'єднання втрачено";
+            console.log("WebSocket closed:", event);
+            document.getElementById('messageText').placeholder = langDict['chat_connection_lost'];
             document.getElementById('messageText').disabled = true;
-            document.querySelector('button[type="submit"]').disabled = true;
+            document.querySelector('#form button').disabled = true;
         };
         
         ws.onerror = function(error) {
