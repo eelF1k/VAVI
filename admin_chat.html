@@ -57,8 +57,17 @@
         const messageInput = document.getElementById('messageText');
         const sendButton = document.querySelector('#form button');
 
-        ws.onopen = () => console.log("Admin WebSocket connection established");
-        ws.onclose = () => console.log("Admin WebSocket connection closed");
+        ws.onopen = () => {
+            console.log("WebSocket connected");
+            document.getElementById('messageText').disabled = false;
+            document.querySelector('button[type="submit"]').disabled = false;
+};
+        ws.onclose = (event) => {
+            console.log("WebSocket disconnected", event);
+            document.getElementById('messageText').placeholder = "З'єднання втрачено";
+            document.getElementById('messageText').disabled = true;
+            document.querySelector('button[type="submit"]').disabled = true;
+};
         ws.onerror = (error) => console.error("Admin WebSocket error:", error);
 
         ws.onmessage = function(event) {
@@ -124,9 +133,12 @@
 
         function addMessage(message) {
             const li = document.createElement('li');
-            li.textContent = message.message_text;
+            li.textContent = message.message_text; // Використовуємо правильне поле
+            
+            // Визначаємо клас відповідно до типу відправника
             li.className = message.sender_type === 'user' ? 'user' : 'admin';
-            messages.prepend(li); // Завжди додаємо на початок, бо flex-direction: column-reverse
+            
+            messages.scrollTop = messages.scrollHeight;
         }
 
         function updateChatList(userId, lastMessage, isNewFromUser) {
@@ -182,11 +194,11 @@
             event.preventDefault();
             if (messageInput.value && currentChatId && ws.readyState === WebSocket.OPEN) {
                 const message = {
+                    action: "send_message", // Додаємо тип дії
                     target_user_id: currentChatId,
                     text: messageInput.value,
-                };
-                ws.send(JSON.stringify(message));
-                messageInput.value = '';
+                    sender_type: "admin"
+};
             }
         }
     </script>
