@@ -29,18 +29,14 @@
         tg.ready();
         tg.expand();
 
-        // !!! ВАЖЛИВО !!!
-        // ЗАМІНІТЬ "localhost" НА РЕАЛЬНУ IP-АДРЕСУ ВАШОГО СЕРВЕРА!
-        // ЯКЩО ВИ ТЕСТУЄТЕ ЛОКАЛЬНО, ЦЕ МОЖЕ БУТИ "192.168.x.x".
-        // ЯКЩО У ВАС ПУБЛІЧНИЙ СЕРВЕР, ВКАЖІТЬ ЙОГО ПУБЛІЧНУ IP.
+        // !!! IP-АДРЕСУ ЗАМІНЕНО !!!
         const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
         
-        let ws; // Зробимо змінну глобальною для скрипта
+        let ws; 
 
         const params = new URLSearchParams(window.location.search);
         const userId = params.get('user_id') || 'unknown_user';
         
-        // Перевіряємо протокол сторінки, щоб автоматично вибрати ws:// або wss://
         if (window.location.protocol === "https:") {
             const secureUrl = WEBSOCKET_URL.replace("ws://", "wss://");
             console.log("Сторінка завантажена по HTTPS. Спроба підключення до " + secureUrl);
@@ -56,7 +52,6 @@
             li.textContent = message.message_text;
             li.className = message.sender_type === 'user' ? 'user' : 'admin';
             messages.appendChild(li);
-            // Прокручуємо вниз до нового повідомлення
             messages.scrollTop = messages.scrollHeight;
         }
         
@@ -69,7 +64,6 @@
         ws.onmessage = function(event) {
             try {
                 const response = JSON.parse(event.data);
-                // Сервер надсилає повідомлення з полем 'type'
                 if (response.type === 'history' || response.type === 'message') {
                     addMessage(response);
                 }
