@@ -71,7 +71,7 @@
         // Автоматичне визначення хоста та протоколу
         const host = window.location.hostname;
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${host}:8000/ws/${userId}/false?lang=${userLang}`;
+        const wsUrl = `${protocol}//${host}:5500/ws/${userId}/false?lang=${userLang}`;
         
         const ws = new WebSocket(wsUrl);
 
