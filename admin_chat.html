@@ -44,9 +44,12 @@
         const params = new URLSearchParams(window.location.search);
         const lang = params.get('lang') || 'ua';
         
-        // Формуємо правильний URL
-        const WEBSOCKET_URL = "ws://eelf1k.github.io/VAVI"; // Замініть на реальний сервер
-        const ws = new WebSocket(`${WEBSOCKET_URL}/ws/${adminId}/true?lang=${lang}`);
+        // Автоматичне визначення хоста та протоколу
+        const host = window.location.hostname;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${host}:8000/ws/${adminId}/true?lang=${lang}`;
+        
+        const ws = new WebSocket(wsUrl);
         
         const params = new URLSearchParams(window.location.search);
         const adminId = params.get('user_id') || 'admin';
@@ -194,11 +197,21 @@
             event.preventDefault();
             if (messageInput.value && currentChatId && ws.readyState === WebSocket.OPEN) {
                 const message = {
-                    action: "send_message", // Додаємо тип дії
+                    action: "send_message",
                     target_user_id: currentChatId,
-                    text: messageInput.value,
-                    sender_type: "admin"
-};
+                    text: messageInput.value
+                };
+                ws.send(JSON.stringify(message));
+                messageInput.value = '';
+                
+                // Додаємо повідомлення локально
+                addMessage({
+                    sender_type: "admin",
+                    message_text: message.text,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
             }
         }
     </script>
