@@ -71,13 +71,19 @@
         };
         
         function sendMessage(event) {
-            event.preventDefault();
-            const input = document.getElementById("messageText");
-            if (input.value && ws.readyState === WebSocket.OPEN) {
-                ws.send(input.value);
-                input.value = '';
-            }
-        }
+    event.preventDefault();
+    if (messageInput.value && currentChatId && ws.readyState === WebSocket.OPEN) {
+        const message = {
+            target_user_id: currentChatId,
+            text: messageInput.value,
+        };
+        ws.send(JSON.stringify(message));
+        
+        // Рядок, що дублював повідомлення, видалено.
+        
+        messageInput.value = '';
+    }
+}
     </script>
 </body>
 </html>
