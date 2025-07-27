@@ -20,25 +20,66 @@
 <body>
     <ul id="messages"></ul>
     <form id="form" onsubmit="sendMessage(event)">
-        <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..."/>
-        <button>Надіслати</button>
+        <input type="text" id="messageText" autocomplete="off" placeholder="Ваше повідомлення..." data-translate-placeholder="chat_placeholder" disabled/>
+        <button type="submit" data-translate-text="chat_send_button" disabled>ТЕСТ 123</button>
     </form>
 
     <script>
+        // Словник з перекладами
+        const translations = {
+            'ua': {
+                'chat_placeholder': 'Ваше повідомлення...',
+                'chat_send_button': 'Надіслати',
+                'chat_connection_lost': "Зв'язок втрачено. Перезавантажте."
+            },
+            'en': {
+                'chat_placeholder': 'Your message...',
+                'chat_send_button': 'Send',
+                'chat_connection_lost': 'Connection lost. Please reload.'
+            },
+            'ru': {
+                'chat_placeholder': 'Ваше сообщение...',
+                'chat_send_button': 'Отправить',
+                'chat_connection_lost': 'Связь потеряна. Перезагрузите.'
+            }
+        };
+
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
-        // !!! ВАЖЛИВО !!!
-        // Замініть "localhost" на IP-адресу або домен вашого сервера.
-        // Якщо ваш сервер використовує HTTPS, протокол має бути "wss://".
-        const WEBSOCKET_URL = "ws://localhost:8000"; 
-
         const params = new URLSearchParams(window.location.search);
         const userId = params.get('user_id') || 'unknown_user';
+        const userLang = params.get('lang') || 'ua';
+        const langDict = translations[userLang] || translations['ua'];
+
+        // Функція для застосування перекладів
+        function applyTranslations() {
+            document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-translate-placeholder');
+                if (langDict[key]) el.placeholder = langDict[key];
+            });
+            document.querySelectorAll('[data-translate-text]').forEach(el => {
+                const key = el.getAttribute('data-translate-text');
+                if (langDict[key]) el.textContent = langDict[key];
+            });
+        }
         
-        const ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
+        // Застосовуємо переклади одразу при завантаженні скрипта
+        applyTranslations();
         
+        // !!! НЕ ЗАБУДЬТЕ ВСТАВИТИ СЮДИ ВАШУ IP-АДРЕСУ !!!
+        const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
+        
+        let ws; 
+
+        if (window.location.protocol === "https:") {
+            const secureUrl = WEBSOCKET_URL.replace("ws://", "wss://");
+            ws = new WebSocket(`${secureUrl}/ws/${userId}/false`);
+        } else {
+            ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
+        }
+
         function addMessage(message) {
             const messages = document.getElementById('messages');
             const li = document.createElement('li');
@@ -49,31 +90,43 @@
         }
         
         ws.onopen = function() {
-            console.log("WebSocket connection established");
+            console.log("WebSocket з'єднання успішно встановлено!");
+            document.getElementById('messageText').disabled = false;
+            document.querySelector('#form button').disabled = false;
         };
 
         ws.onmessage = function(event) {
             try {
-                const messageData = JSON.parse(event.data);
-                addMessage(messageData);
+                const response = JSON.parse(event.data);
+                if (response.type === 'history' || response.type === 'message') {
+                    addMessage(response);
+                }
             } catch (e) {
-                console.error("Failed to parse message data:", event.data, e);
+                console.error("Не вдалося обробити дані від сервера:", event.data, e);
             }
         };
 
         ws.onclose = function(event) {
-            console.log("WebSocket connection closed", event);
-            // Можна додати логіку для перепідключення
+            console.error("WebSocket з'єднання закрито.", event);
+            document.getElementById('messageText').placeholder = langDict['chat_connection_lost'];
+            document.getElementById('messageText').disabled = true;
+            document.querySelector('#form button').disabled = true;
         };
         
         ws.onerror = function(error) {
-            console.error("WebSocket error:", error);
+            console.error("Помилка WebSocket:", error);
         };
         
         function sendMessage(event) {
             event.preventDefault();
             const input = document.getElementById("messageText");
-            if (input.value && ws.readyState === WebSocket.OPEN) {
+            
+            if (ws.readyState !== WebSocket.OPEN) {
+                console.error("Неможливо надіслати повідомлення, WebSocket не підключено. Статус: " + ws.readyState);
+                return;
+            }
+
+            if (input.value) {
                 ws.send(input.value);
                 input.value = '';
             }
