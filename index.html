@@ -1,50 +1,88 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bot Web Panel</title>
+    <title>Підтримка</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: var(--tg-theme-text-color); 
-            background-color: var(--tg-theme-bg-color);
-            text-align: center;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: 90vh;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; color: var(--tg-theme-text-color); background-color: var(--tg-theme-bg-color); text-align: center; }
+        .container { padding: 20px; }
+        #loader { font-size: 18px; }
+        #welcome-screen { display: none; } /* Сховано за замовчуванням */
         h1 { font-size: 24px; }
-        p { font-size: 16px; color: var(--tg-theme-hint-color); }
-        button { 
-            width: 100%;
-            padding: 15px 20px; 
-            font-size: 18px; 
-            font-weight: bold;
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-        }
+        p { color: var(--tg-theme-hint-color); }
+        button { padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border: none; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <h1>Веб-панель бота</h1>
-    <p>Це головна сторінка веб-додатку. Звідси ви можете перейти до онлайн-чату з адміністрацією.</p>
-    
-    <button onclick="goToChat()">Перейти в онлайн-чат 💬</button>
+    <div class="container">
+        <div id="loader">Завантаження...</div>
+        <div id="welcome-screen">
+            <h1>👋 Вітаємо в чаті!</h1>
+            <p>Натисніть кнопку нижче, щоб почати розмову з нашою командою підтримки.</p>
+            <button id="start-chat-btn">Почати чат</button>
+        </div>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
+        tg.expand();
 
-        function goToChat() {
-            window.location.href = 'chat.html';
+        const params = new URLSearchParams(window.location.search);
+        const userId = params.get('user_id') || 'unknown_user';
+        const userLang = params.get('lang') || 'ua';
+
+        const loader = document.getElementById('loader');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const startChatBtn = document.getElementById('start-chat-btn');
+
+        // Вкажіть IP-адресу вашого сервера
+        const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
+        
+        let ws;
+        try {
+            if (window.location.protocol === "https:") {
+                ws = new WebSocket(`${WEBSOCKET_URL.replace("ws://", "wss://")}/ws/${userId}/false`);
+            } else {
+                ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
+            }
+        } catch (error) {
+            loader.textContent = "Помилка підключення до сервера.";
         }
+        
+        ws.onopen = function() {
+            // Запитуємо у сервера, чи це новий користувач
+            ws.send(JSON.stringify({ action: 'check_user_chat' }));
+        };
+
+        ws.onmessage = function(event) {
+            const response = JSON.parse(event.data);
+
+            if (response.type === 'user_status') {
+                if (response.exists) {
+                    // Якщо чат існує, перенаправляємо на chat.html
+                    window.location.href = `chat.html?user_id=${userId}&lang=${userLang}`;
+                } else {
+                    // Якщо чат новий, показуємо кнопку "Почати чат"
+                    loader.style.display = 'none';
+                    welcomeScreen.style.display = 'block';
+                }
+            }
+        };
+
+        ws.onerror = function() {
+            loader.textContent = "Не вдалося підключитися. Спробуйте пізніше.";
+        };
+
+        startChatBtn.onclick = function() {
+            // Повідомляємо сервер, що користувач почав новий чат
+            ws.send(JSON.stringify({ action: 'start_new_chat' }));
+            // І одразу перенаправляємо його
+            window.location.href = `chat.html?user_id=${userId}&lang=${userLang}`;
+        };
+
     </script>
 </body>
 </html>
