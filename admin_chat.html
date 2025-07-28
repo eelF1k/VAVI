@@ -10,13 +10,14 @@
         body { color: var(--tg-theme-text-color); background-color: var(--tg-theme-bg-color); }
         .container { display: flex; height: 100%; }
         #chat-list { width: 35%; border-right: 1px solid var(--tg-theme-hint-color); overflow-y: auto; }
-        #chat-window { width: 65%; display: flex; flex-direction: column; }
+        #chat-window { width: 65%; display: flex; flex-direction: column; background-color: var(--tg-theme-secondary-bg-color); }
         #chat-list .chat-item { padding: 10px 15px; border-bottom: 1px solid var(--tg-theme-hint-color); cursor: pointer; position: relative; }
         #chat-list .chat-item.active { background-color: var(--tg-theme-secondary-bg-color); }
-        #chat-list .chat-item .unread { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border-radius: 50%; width: 22px; height: 22px; text-align: center; line-height: 22px; font-size: 12px; font-weight: bold; }
+        #chat-list .chat-item.unread { font-weight: bold; }
+        #chat-list .chat-item .unread-indicator { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border-radius: 50%; width: 10px; height: 10px; }
         #messages { list-style-type: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; }
         #messages li { padding: 8px 12px; margin-bottom: 8px; border-radius: 18px; max-width: 70%; word-wrap: break-word; }
-        .user { background-color: var(--tg-theme-secondary-bg-color); margin-right: auto; border-bottom-left-radius: 4px; }
+        .user { background-color: #ffffff; color: #000000; margin-right: auto; border-bottom-left-radius: 4px; }
         .admin { background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); margin-left: auto; border-bottom-right-radius: 4px; }
         #form { display: flex; padding: 10px; border-top: 1px solid var(--tg-theme-hint-color); }
         #messageText { flex-grow: 1; padding: 10px; border: 1px solid var(--tg-theme-hint-color); border-radius: 5px; background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
@@ -39,17 +40,7 @@
         const tg = window.Telegram.WebApp;
         tg.ready();
 
-        // !!! ВАЖЛИВО: Замініть "localhost" на IP-адресу або домен вашого сервера !!!
-        // Отримуємо параметри з URL
-        const params = new URLSearchParams(window.location.search);
-        const lang = params.get('lang') || 'ua';
-        
-        // Автоматичне визначення хоста та протоколу
-        const host = window.location.hostname;
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${host}:5500/ws/${adminId}/true?lang=${lang}`;
-        
-        const ws = new WebSocket(wsUrl);
+        const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
         
         const params = new URLSearchParams(window.location.search);
         const adminId = params.get('user_id') || 'admin';
@@ -60,107 +51,113 @@
         const messageInput = document.getElementById('messageText');
         const sendButton = document.querySelector('#form button');
 
-        ws.onopen = () => {
-            console.log("WebSocket connected");
-            document.getElementById('messageText').disabled = false;
-            document.querySelector('button[type="submit"]').disabled = false;
-};
-        ws.onclose = (event) => {
-            console.log("WebSocket disconnected", event);
-            document.getElementById('messageText').placeholder = "З'єднання втрачено";
-            document.getElementById('messageText').disabled = true;
-            document.querySelector('button[type="submit"]').disabled = true;
-};
+        let ws;
+        try {
+            ws = new WebSocket(`${WEBSOCKET_URL}/ws/${adminId}/true`);
+        } catch (error) {
+            console.error("Failed to create WebSocket", error);
+        }
+
+        ws.onopen = () => console.log("Admin WebSocket connection established");
+        ws.onclose = () => console.log("Admin WebSocket connection closed");
         ws.onerror = (error) => console.error("Admin WebSocket error:", error);
 
         ws.onmessage = function(event) {
-            try {
-                const response = JSON.parse(event.data);
-                
-                switch (response.type) {
-                    case 'chat_list':
-                        populateInitialChatList(response.data);
-                        break;
-                    case 'history':
-                        addMessage(response);
-                        break;
-                    case 'message':
-                        handleRealtimeMessage(response);
-                        break;
-                }
-            } catch (e) {
-                console.error("Failed to parse admin message data:", event.data, e);
+            const response = JSON.parse(event.data);
+            
+            switch (response.type) {
+                case 'chat_list':
+                    populateInitialChatList(response.data);
+                    break;
+                case 'history':
+                    messages.innerHTML = '';
+                    response.data.forEach(addMessage);
+                    break;
+                case 'message':
+                    handleRealtimeMessage(response);
+                    break;
             }
         };
+
+        function createChatItem(chat) {
+            const chatItem = document.createElement('div');
+            chatItem.className = 'chat-item';
+            chatItem.id = `chat-${chat.user_id}`;
+            chatItem.onclick = () => selectChat(chat.user_id);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = chat.first_name || `User ${chat.user_id}`;
+            nameSpan.style.fontWeight = 'bold';
+            
+            const lastMsgSpan = document.createElement('div');
+            lastMsgSpan.style.fontSize = '14px';
+            lastMsgSpan.style.color = 'var(--tg-theme-hint-color)';
+            if (chat.message_text) {
+                 lastMsgSpan.textContent = chat.message_text.length > 25 ? chat.message_text.substring(0, 25) + '...' : chat.message_text;
+            }
+
+            const unreadIndicator = document.createElement('div');
+            unreadIndicator.className = 'unread-indicator';
+            
+            chatItem.appendChild(nameSpan);
+            chatItem.appendChild(lastMsgSpan);
+            chatItem.appendChild(unreadIndicator);
+            
+            updateUnreadStatus(chatItem, !chat.is_read_by_admin);
+            
+            return chatItem;
+        }
+        
+        function updateUnreadStatus(chatItem, isUnread) {
+            const indicator = chatItem.querySelector('.unread-indicator');
+            if (isUnread) {
+                chatItem.classList.add('unread');
+                indicator.style.display = 'block';
+            } else {
+                chatItem.classList.remove('unread');
+                indicator.style.display = 'none';
+            }
+        }
 
         function populateInitialChatList(chats) {
             chatList.innerHTML = '';
             chats.forEach(chat => {
-                const chatItem = createChatItem(chat.user_id, chat.message_text);
+                const chatItem = createChatItem(chat);
                 chatList.appendChild(chatItem);
             });
         }
 
         function handleRealtimeMessage(msg) {
-            updateChatList(msg.user_id, msg.message_text, msg.sender_type === 'user');
+            let chatItem = document.getElementById(`chat-${msg.user_id}`);
+            
+            if (!chatItem) {
+                const newChatData = {
+                    user_id: msg.user_id,
+                    first_name: msg.first_name,
+                    message_text: msg.message_text,
+                    is_read_by_admin: false
+                };
+                chatItem = createChatItem(newChatData);
+            } else {
+                chatItem.querySelector('div').textContent = msg.message_text.length > 25 ? msg.message_text.substring(0, 25) + '...' : msg.message_text;
+            }
+            
+            chatList.prepend(chatItem);
+            
+            if (msg.user_id !== currentChatId) {
+                updateUnreadStatus(chatItem, true);
+            }
+
             if (msg.user_id === currentChatId) {
                 addMessage(msg);
             }
         }
 
-        function createChatItem(userId, lastMessage) {
-            const chatItem = document.createElement('div');
-            chatItem.className = 'chat-item';
-            chatItem.id = `chat-${userId}`;
-            
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = `User ${userId}`;
-            nameSpan.style.fontWeight = 'bold';
-            
-            const lastMsgSpan = document.createElement('div');
-            lastMsgSpan.textContent = lastMessage.length > 25 ? lastMessage.substring(0, 25) + '...' : lastMessage;
-            lastMsgSpan.style.fontSize = '14px';
-            lastMsgSpan.style.color = 'var(--tg-theme-hint-color)';
-
-            const unreadSpan = document.createElement('span');
-            unreadSpan.className = 'unread';
-            unreadSpan.style.display = 'none';
-
-            chatItem.appendChild(nameSpan);
-            chatItem.appendChild(lastMsgSpan);
-            chatItem.appendChild(unreadSpan);
-
-            chatItem.onclick = () => selectChat(userId);
-            return chatItem;
-        }
-
         function addMessage(message) {
             const li = document.createElement('li');
-            li.textContent = message.message_text; // Використовуємо правильне поле
-            
-            // Визначаємо клас відповідно до типу відправника
+            li.textContent = message.message_text;
             li.className = message.sender_type === 'user' ? 'user' : 'admin';
-            
-            messages.scrollTop = messages.scrollHeight;
-        }
-
-        function updateChatList(userId, lastMessage, isNewFromUser) {
-            let chatItem = document.getElementById(`chat-${userId}`);
-            
-            if (!chatItem) {
-                chatItem = createChatItem(userId, lastMessage);
-            } else {
-                chatItem.querySelector('div').textContent = lastMessage.length > 25 ? lastMessage.substring(0, 25) + '...' : lastMessage;
-            }
-            
-            chatList.prepend(chatItem);
-
-            if (isNewFromUser && userId !== currentChatId) {
-                const unreadSpan = chatItem.querySelector('.unread');
-                unreadSpan.style.display = 'block';
-                let currentCount = parseInt(unreadSpan.textContent) || 0;
-                unreadSpan.textContent = currentCount + 1;
-            }
+            messages.prepend(li);
         }
 
         function selectChat(userId) {
@@ -170,26 +167,19 @@
             
             document.querySelectorAll('#chat-list .chat-item').forEach(el => el.classList.remove('active'));
             const chatItem = document.getElementById(`chat-${userId}`);
-            chatItem.classList.add('active');
-            
-            const unreadSpan = chatItem.querySelector('.unread');
-            if (unreadSpan) {
-                unreadSpan.textContent = '';
-                unreadSpan.style.display = 'none';
+            if (chatItem) {
+                chatItem.classList.add('active');
+                updateUnreadStatus(chatItem, false);
             }
             
             messages.innerHTML = '';
-            
             messageInput.disabled = false;
             sendButton.disabled = false;
             messageInput.placeholder = `Відповідь для User ${userId}...`;
             messageInput.focus();
             
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    action: "get_history",
-                    user_id: userId
-                }));
+                ws.send(JSON.stringify({ action: "get_history", user_id: userId }));
             }
         }
 
@@ -199,19 +189,10 @@
                 const message = {
                     action: "send_message",
                     target_user_id: currentChatId,
-                    text: messageInput.value
+                    text: messageInput.value,
                 };
                 ws.send(JSON.stringify(message));
                 messageInput.value = '';
-                
-                // Додаємо повідомлення локально
-                addMessage({
-                    sender_type: "admin",
-                    message_text: message.text,
-                    timestamp: new Date().toISOString()
-                });
-            }
-        }
             }
         }
     </script>
