@@ -24,56 +24,65 @@
         <button type="submit" disabled>Надіслати</button>
     </form>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
 
-        // !!! НЕ ЗАБУДЬТЕ ВСТАВИТИ СЮДИ ВАШУ IP-АДРЕСУ !!!
-        // Вставте цей рядок:
-        const ws = new WebSocket('wss://briefly-picked-vbulletin-greece.trycloudflare.com');
-        
-        let ws; 
+    // Отримуємо дані користувача з Telegram. Це найважливіша частина.
+    const user = tg.initDataUnsafe.user;
+    let ws; // Оголошуємо змінну WebSocket тут
 
-        const params = new URLSearchParams(window.location.search);
-        const userId = params.get('user_id') || 'unknown_user';
-        
-        if (window.location.protocol === "https:") {
-            const secureUrl = WEBSOCKET_URL.replace("ws://", "wss://");
-            console.log("Сторінка завантажена по HTTPS. Спроба підключення до " + secureUrl);
-            ws = new WebSocket(`${secureUrl}/ws/${userId}/false`);
-        } else {
-            console.log("Підключення до " + WEBSOCKET_URL);
-            ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
-        }
+    // Перевіряємо, чи вдалося отримати дані користувача
+    if (!user) {
+        console.error("Не вдалося отримати дані користувача. Додаток має бути запущений в Telegram.");
+        // Блокуємо форму, якщо дані недоступні
+        document.getElementById('messageText').disabled = true;
+        document.querySelector('#form button').disabled = true;
+        document.getElementById('messageText').placeholder = "Помилка: запустіть через Telegram";
+    } else {
+        // Створюємо WebSocket з'єднання, тільки якщо є дані користувача
+        ws = new WebSocket('wss://briefly-picked-vbulletin-greece.trycloudflare.com');
 
-        function addMessage(message) {
-            const messages = document.getElementById('messages');
-            const li = document.createElement('li');
-            li.textContent = message.message_text;
-            li.className = message.sender_type === 'user' ? 'user' : 'admin';
-            messages.appendChild(li);
-            messages.scrollTop = messages.scrollHeight;
-        }
-        
+        // Спрацює, коли з'єднання буде успішно встановлено
         ws.onopen = function() {
-            console.log("WebSocket з'єднання успішно встановлено!");
+            console.log("WebSocket з'єднання встановлено.");
+
+            // 1. НАЙВАЖЛИВІШЕ: "Представляємося" серверу, надсилаючи ID користувача
+            ws.send(JSON.stringify({
+                action: "init",
+                user_id: user.id
+            }));
+
+            // 2. Тепер просимо історію чату (сервер вже знає, для кого)
+            ws.send(JSON.stringify({
+                action: "get_history"
+            }));
+
+            // 3. ЯВНО ВМИКАЄМО ПОЛЕ ВВОДУ, оскільки з'єднання стабільне
             document.getElementById('messageText').disabled = false;
             document.querySelector('#form button').disabled = false;
+            document.getElementById('messageText').focus(); // Ставимо курсор у поле вводу
         };
 
+        // Спрацює при отриманні повідомлення від сервера
         ws.onmessage = function(event) {
             try {
-                const response = JSON.parse(event.data);
-                // Обробляємо повідомлення, лише якщо це історія або нове повідомлення
-                if (response.type === 'history' || response.type === 'message') {
-                    addMessage(response);
+                const data = JSON.parse(event.data);
+                if (data.type === 'history') {
+                    // Очищуємо старі повідомлення і додаємо історію
+                    const messages = document.getElementById("messages");
+                    messages.innerHTML = '';
+                    data.messages.forEach(msg => addMessage(msg.sender_type, msg.message_text));
+                } else if (data.type === 'message') {
+                    // Додаємо нове повідомлення
+                    addMessage(data.sender_type, data.message_text);
                 }
             } catch (e) {
-                console.error("Не вдалося обробити дані від сервера:", event.data, e);
+                console.error("Помилка обробки даних від сервера:", event.data, e);
             }
         };
 
+        // Спрацює, якщо з'єднання закриється
         ws.onclose = function(event) {
             console.error("WebSocket з'єднання закрито.", event);
             document.getElementById('messageText').placeholder = "Зв'язок втрачено. Перезавантажте.";
@@ -81,24 +90,37 @@
             document.querySelector('#form button').disabled = true;
         };
         
+        // Спрацює при помилці з'єднання
         ws.onerror = function(error) {
             console.error("Помилка WebSocket:", error);
         };
-        
-        function sendMessage(event) {
-            event.preventDefault();
-            const input = document.getElementById("messageText");
-            
-            if (ws.readyState !== WebSocket.OPEN) {
-                console.error("Неможливо надіслати повідомлення, WebSocket не підключено. Статус: " + ws.readyState);
-                return;
-            }
+    }
 
-            if (input.value) {
-                ws.send(input.value);
-                input.value = '';
-            }
+    // Функція для додавання повідомлення у чат
+    function addMessage(sender, text) {
+        const messages = document.getElementById("messages");
+        const li = document.createElement("li");
+        li.textContent = text;
+        li.className = (sender === 'admin') ? 'admin' : 'user';
+        messages.appendChild(li);
+        // Прокручуємо до останнього повідомлення
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Функція для надсилання повідомлення
+    function sendMessage(event) {
+        event.preventDefault();
+        const input = document.getElementById("messageText");
+        
+        if (input.value && ws && ws.readyState === WebSocket.OPEN) {
+            // Тепер ми надсилаємо простий текст, сервер сам додасть ID
+            ws.send(JSON.stringify({
+                 action: "message", // Додаємо дію для ясності
+                 text: input.value
+            }));
+            input.value = '';
         }
+    }
     </script>
 </body>
 </html>
