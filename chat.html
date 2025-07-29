@@ -8,7 +8,7 @@
     <style>
         body, html { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; height: 100vh; overflow: hidden; }
         body { color: var(--tg-theme-text-color); background-color: var(--tg-theme-bg-color); display: flex; flex-direction: column; }
-        #messages { list-style-type: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; }
+        #messages { list-style-type: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; }
         #messages li { padding: 8px 12px; margin-bottom: 8px; border-radius: 18px; max-width: 70%; word-wrap: break-word; }
         .user { background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); margin-left: auto; border-bottom-right-radius: 4px; }
         .admin { background-color: var(--tg-theme-secondary-bg-color); margin-right: auto; border-bottom-left-radius: 4px; }
@@ -29,61 +29,73 @@
         tg.ready();
         tg.expand();
 
-        const params = new URLSearchParams(window.location.search);
-        const userId = params.get('user_id') || 'unknown_user';
-        const userLang = params.get('lang') || 'ua';
-
-        const messages = document.getElementById('messages');
-        const messageInput = document.getElementById('messageText');
-        const sendButton = document.querySelector('#form button');
-
+        // !!! НЕ ЗАБУДЬТЕ ВСТАВИТИ СЮДИ ВАШУ IP-АДРЕСУ !!!
         const WEBSOCKET_URL = "ws://192.168.0.103:8000"; 
         
-        let ws;
-        try {
-             ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
-        } catch (error) {
-            messageInput.placeholder = "Помилка підключення.";
-        }
+        let ws; 
+
+        const params = new URLSearchParams(window.location.search);
+        const userId = params.get('user_id') || 'unknown_user';
         
+        if (window.location.protocol === "https:") {
+            const secureUrl = WEBSOCKET_URL.replace("ws://", "wss://");
+            console.log("Сторінка завантажена по HTTPS. Спроба підключення до " + secureUrl);
+            ws = new WebSocket(`${secureUrl}/ws/${userId}/false`);
+        } else {
+            console.log("Підключення до " + WEBSOCKET_URL);
+            ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
+        }
+
         function addMessage(message) {
+            const messages = document.getElementById('messages');
             const li = document.createElement('li');
             li.textContent = message.message_text;
             li.className = message.sender_type === 'user' ? 'user' : 'admin';
-            messages.prepend(li);
+            messages.appendChild(li);
+            messages.scrollTop = messages.scrollHeight;
         }
-
+        
         ws.onopen = function() {
-            console.log("WebSocket connection established!");
-            messageInput.disabled = false;
-            sendButton.disabled = false;
+            console.log("WebSocket з'єднання успішно встановлено!");
+            document.getElementById('messageText').disabled = false;
+            document.querySelector('#form button').disabled = false;
         };
 
         ws.onmessage = function(event) {
-            const response = JSON.parse(event.data);
-            if (response.type === 'history') {
-                messages.innerHTML = ''; // Очищуємо, щоб не дублювати історію
-                response.data.forEach(addMessage);
-            } else if (response.type === 'message') {
-                addMessage(response);
+            try {
+                const response = JSON.parse(event.data);
+                // Обробляємо повідомлення, лише якщо це історія або нове повідомлення
+                if (response.type === 'history' || response.type === 'message') {
+                    addMessage(response);
+                }
+            } catch (e) {
+                console.error("Не вдалося обробити дані від сервера:", event.data, e);
             }
         };
 
-        ws.onclose = function() {
-            messageInput.placeholder = "Зв'язок втрачено. Перезавантажте.";
-            messageInput.disabled = true;
-            sendButton.disabled = true;
+        ws.onclose = function(event) {
+            console.error("WebSocket з'єднання закрито.", event);
+            document.getElementById('messageText').placeholder = "Зв'язок втрачено. Перезавантажте.";
+            document.getElementById('messageText').disabled = true;
+            document.querySelector('#form button').disabled = true;
+        };
+        
+        ws.onerror = function(error) {
+            console.error("Помилка WebSocket:", error);
         };
         
         function sendMessage(event) {
             event.preventDefault();
-            if (messageInput.value && ws.readyState === WebSocket.OPEN) {
-                const message = {
-                    action: "send_message",
-                    text: messageInput.value
-                };
-                ws.send(JSON.stringify(message));
-                messageInput.value = '';
+            const input = document.getElementById("messageText");
+            
+            if (ws.readyState !== WebSocket.OPEN) {
+                console.error("Неможливо надіслати повідомлення, WebSocket не підключено. Статус: " + ws.readyState);
+                return;
+            }
+
+            if (input.value) {
+                ws.send(input.value);
+                input.value = '';
             }
         }
     </script>
