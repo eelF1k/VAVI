@@ -1,118 +1,41 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Підтримка</title>
+    <title>Bot Web Panel</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; color: var(--tg-theme-text-color); background-color: var(--tg-theme-bg-color); text-align: center; }
-        .container { padding: 20px; }
-        #loader { font-size: 18px; }
-        #welcome-screen { display: none; } /* Сховано за замовчуванням */
-        h1 { font-size: 24px; }
-        p { color: var(--tg-theme-hint-color); }
-        button { padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border: none; border-radius: 8px; cursor: pointer; }
+        body { font-family: sans-serif; color: var(--tg-theme-text-color); background-color: var(--tg-theme-bg-color); text-align: center; padding: 20px; }
+        button { padding: 10px 20px; font-size: 16px; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border: none; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="loader" data-translate-text="loader_text">Завантаження...</div>
-        <div id="welcome-screen">
-            <h1 data-translate-text="welcome_title">👋 Вітаємо в чаті!</h1>
-            <p data-translate-text="welcome_subtitle">Натисніть кнопку нижче, щоб почати розмову з нашою командою підтримки.</p>
-            <button id="start-chat-btn" data-translate-text="start_chat_button">Почати чат</button>
-        </div>
-    </div>
+    <h1>Вітаю у веб-панелі!</h1>
+    <p>Це повідомлення відображається всередині Telegram.</p>
+    <p id="user-info"></p>
+    <button id="send-data-btn">Надіслати дані боту</button>
 
     <script>
-        const translations = {
-            'ua': {
-                'loader_text': 'Завантаження...',
-                'welcome_title': '👋 Вітаємо в чаті!',
-                'welcome_subtitle': 'Натисніть кнопку нижче, щоб почати розмову з нашою командою підтримки.',
-                'start_chat_button': 'Почати чат',
-                'connection_error': 'Помилка підключення. Спробуйте пізніше.'
-            },
-            'en': {
-                'loader_text': 'Loading...',
-                'welcome_title': '👋 Welcome to the chat!',
-                'welcome_subtitle': 'Press the button below to start a conversation with our support team.',
-                'start_chat_button': 'Start Chat',
-                'connection_error': 'Connection error. Please try again later.'
-            },
-            'ru': {
-                'loader_text': 'Загрузка...',
-                'welcome_title': '👋 Добро пожаловать в чат!',
-                'welcome_subtitle': 'Нажмите кнопку ниже, чтобы начать разговор с нашей командой поддержки.',
-                'start_chat_button': 'Начать чат',
-                'connection_error': 'Ошибка подключения. Попробуйте позже.'
-            }
-        };
-
+        // Ініціалізуємо Web App
         const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
+        tg.ready(); // Повідомляємо Telegram, що наш додаток готовий
 
-        const params = new URLSearchParams(window.location.search);
-        const userId = params.get('user_id') || 'unknown_user';
-        const userLang = params.get('lang') || 'ua';
-        const langDict = translations[userLang] || translations['ua'];
-
-        const loader = document.getElementById('loader');
-        const welcomeScreen = document.getElementById('welcome-screen');
-        const startChatBtn = document.getElementById('start-chat-btn');
-
-        // Функція для застосування перекладів
-        function applyTranslations() {
-            document.querySelectorAll('[data-translate-text]').forEach(el => {
-                const key = el.getAttribute('data-translate-text');
-                if (langDict[key]) el.textContent = langDict[key];
-            });
+        // Показуємо інформацію про користувача
+        if (tg.initDataUnsafe.user) {
+            document.getElementById('user-info').innerText = `Привіт, ${tg.initDataUnsafe.user.first_name}!`;
         }
-        
-        applyTranslations();
-        
-        // !!! ВАЖЛИВО !!!
-        // Вставте сюди ПУБЛІЧНУ адресу вашого чат-сервера (з VPS або Cloudflare/ngrok)
-        const WEBSOCKET_URL = "wss://your-public-server-address.com"; 
-        
-        let ws;
-        try {
-            ws = new WebSocket(`${WEBSOCKET_URL}/ws/${userId}/false`);
-        } catch (error) {
-            loader.textContent = langDict['connection_error'];
-        }
-        
-        ws.onopen = function() {
-            ws.send(JSON.stringify({ action: 'check_user_chat' }));
-        };
 
-        ws.onmessage = function(event) {
-            const response = JSON.parse(event.data);
-            if (response.type === 'user_status') {
-                const chatUrl = `chat.html?user_id=${userId}&lang=${userLang}`;
-                if (response.exists) {
-                    window.location.replace(chatUrl);
-                } else {
-                    loader.style.display = 'none';
-                    welcomeScreen.style.display = 'block';
-                }
-            }
-        };
-
-        ws.onerror = function() {
-            loader.textContent = langDict['connection_error'];
-        };
-
-        startChatBtn.onclick = function() {
-            ws.send(JSON.stringify({ action: 'start_new_chat' }));
-            // Даємо серверу мить на обробку перед перенаправленням
-            setTimeout(() => {
-                window.location.href = `chat.html?user_id=${userId}&lang=${userLang}`;
-            }, 100);
-        };
-
+        // Обробник для кнопки
+        const sendButton = document.getElementById('send-data-btn');
+        sendButton.addEventListener('click', () => {
+            // Надсилаємо дані назад в бот
+            const dataToSend = JSON.stringify({ action: 'button_clicked', timestamp: new Date().toISOString() });
+            tg.sendData(dataToSend);
+            
+            // Після відправки можна закрити Web App
+            // tg.close(); 
+        });
     </script>
 </body>
 </html>
